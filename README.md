@@ -1,90 +1,100 @@
-Project: Real-Time Anomaly Detection using Object Detector and USB Camera
+# Real-Time Anomaly Detection using Object Detection & USB Camera
 
-Overview:
+A real-time workplace safety monitoring system built on **NVIDIA Jetson** using the Jetson Inference library. The system detects unsafe or unusual situations in live camera feeds by applying rule-based anomaly logic on top of object detection — flagging violations, logging events with timestamps, and saving anomalous frames for review.
 
-This project implements a real-time anomaly detection system using NVIDIA Jetson and the jetson-inference library. The goal is to detect unusual or unsafe situations in live camera feeds using object detection. The system flags anomalies based on object presence, count, or absence.
+---
 
-Objective:
+## Overview
 
-This project uses NVIDIA Jetson Inference’s detectNet model to build a real-time anomaly detection system. The system identifies anomalies based on object presence, count, or absence in the live camera feed.
+Each frame from a USB camera is passed through **DetectNet** (SSD-MobileNet-v2, trained on COCO) to identify objects in the scene. The detections are then evaluated against a set of configurable safety rules. When a rule is violated, the system draws a red border around the offending object, logs the event to a CSV file, and saves the frame.
 
-Normal Scene Definition:
+---
 
-For this implementation, a normal scene is defined as:
-At most 2 people are visible.
+## Anomaly Rules
 
-No cell phone visible in the frame.
+A scene is considered **normal** when:
+- At most 2 people are visible
+- No cell phone is present in the frame
+- A helmet is detected on any person present
 
-No missing safety equipment (example: person should have helmet).
+The following anomaly types are implemented:
 
-Anomaly Rules Implemented:
+| Type | Trigger |
+|---|---|
+| **Count-based** | More than 2 people detected in a single frame |
+| **Forbidden object** | A cell phone is detected anywhere in the frame |
+| **Missing equipment** | A person is present but no helmet is detected |
 
-The following rules were implemented in the code:
-Count-based anomaly:
- If more than 2 people are detected in a frame, it flags an anomaly.
+Each violation is logged with a timestamp and anomaly type to `anomaly_log.csv`, and the frame is saved to `anomaly_images/`.
 
-Forbidden object anomaly:
- If a “cell phone” is detected in the frame, it flags an anomaly.
+---
 
-Missing object anomaly:
- If a person is detected but a “helmet” is not, it flags an anomaly.
+## Output Artifacts
 
-Each anomaly is logged with a timestamp and type in a CSV file.
+| File / Folder | Contents |
+|---|---|
+| `anomaly_log.csv` | Timestamped log of all anomaly events and their types |
+| `anomaly_images/` | Saved frames captured at the moment of each violation |
 
-Real-Time Detection:
-
-The system runs using:
-python3 /jetson-inference/anomaly_detector.py
-
-Each camera frame is passed through detectNet to detect objects. The detections are then checked against the anomaly rules. When a rule is violated:
-A red border appears around the detected object.
-
-The event is logged in anomaly_log.csv.
-
-The anomalous frame is saved in anomaly_images/.
-
-Output Artifacts:
-
-anomaly_log.csv — contains timestamps and reasons for anomalies.
-
-anomaly_images/ — contains frames saved when anomalies occurred.
-
-Example anomaly_log.csv content:
+**Example log entries:**
+```csv
+timestamp,anomaly_type,detail
 2025-10-27 02:14:32,forbidden_present,cell phone
 2025-10-27 02:15:10,count_exceeded,person:4
+2025-10-27 02:17:45,missing_equipment,helmet not found
+```
 
-Observations and Improvements:
+---
 
-The system accurately detects object counts and forbidden objects.
+## Tech Stack
 
-Occasional false positives occur in low-light or crowded scenes.
+| Layer | Tool |
+|---|---|
+| Hardware | NVIDIA Jetson Nano / Xavier / Orin |
+| Camera | USB camera via `/dev/video0` |
+| Inference | Jetson Inference — DetectNet |
+| Model | SSD-MobileNet-v2 (COCO) |
+| Streaming | GStreamer |
+| Language | Python 3 |
 
-Could be improved with:
+---
 
-Confidence threshold tuning
+## How to Run
 
-Adding cooldown logic to prevent duplicate anomaly logs
+Make sure your Jetson is connected to a USB camera, then run:
 
-Using a trained helmet detection model for better accuracy
+```bash
+python3 /jetson-inference/anomaly_detector.py
+```
 
-Tools and Frameworks Used:
+**What you'll see:**
+- Live camera window with bounding boxes and red borders on violations
+- Terminal output when an anomaly is detected
+- Events logged automatically to `anomaly_log.csv`
 
-Hardware: NVIDIA Jetson board with USB camera
+---
 
-Software: Jetson Inference (DetectNet), GStreamer, Python
+## Observations
 
-Model: SSD-Mobilenet-v2 trained on COCO dataset
+- Object count detection and forbidden object flagging work reliably under normal lighting
+- Occasional false positives occur in low-light or heavily crowded scenes
 
-How to Run:
+---
 
-Start Docker Jetson Inference container:
+## Future Work
 
-cd ~/jetson-inference
-sudo ./docker/run.sh
-Run the anomaly detection script:
+- [ ] Confidence threshold tuning to reduce false positives in low-light conditions
+- [ ] Cooldown logic to prevent duplicate entries for the same ongoing violation
+- [ ] Replace generic COCO helmet class with a fine-tuned helmet detection model for higher accuracy
+- [ ] Add a lightweight dashboard to visualize anomaly frequency over time
 
- python3 /jetson-inference/anomaly_detector.py
-View real-time detection and anomaly logs in /jetson-inference/data/.
+---
 
+## Requirements
 
-
+- NVIDIA Jetson device (Nano / Xavier / Orin)
+- JetPack SDK with:
+  - `jetson-inference`
+  - `jetson-utils`
+- Python 3
+- USB camera
